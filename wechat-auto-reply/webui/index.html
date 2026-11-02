@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>微信自动回复系统 - 管理面板</title>
+<style>
+  :root {
+    --bg: #f5f7fa; --card: #ffffff; --line: #e3e8ef;
+    --text: #1f2937; --muted: #6b7280; --accent: #2563eb;
+    --ok: #16a34a; --warn: #d97706; --err: #dc2626;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text);
+         font: 14px/1.6 "Microsoft YaHei", system-ui, sans-serif; }
+  header { background: var(--card); border-bottom: 1px solid var(--line);
+           padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header .badge { font-size: 12px; color: var(--muted); }
+  nav { padding: 10px 24px 0; display: flex; gap: 8px; flex-wrap: wrap; }
+  nav button { border: 1px solid var(--line); background: var(--card);
+               color: var(--muted); padding: 8px 16px; border-radius: 8px;
+               cursor: pointer; font-size: 14px; }
+  nav button.active { background: var(--accent); border-color: var(--accent);
+                      color: #fff; }
+  main { padding: 16px 24px 40px; max-width: 1100px; }
+  .card { background: var(--card); border: 1px solid var(--line);
+          border-radius: 10px; padding: 16px 20px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; margin-bottom: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 12px; }
+  .kv { background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+        padding: 12px 14px; }
+  .kv .k { font-size: 12px; color: var(--muted); }
+  .kv .v { font-size: 15px; font-weight: 600; word-break: break-all; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line);
+           word-break: break-all; }
+  th { color: var(--muted); font-weight: 500; white-space: nowrap; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px;
+          font-size: 12px; }
+  .pill.ok { background: #e7f6ec; color: var(--ok); }
+  .pill.no { background: #fdecec; color: var(--err); }
+  .pill.off { background: #f1f3f5; color: var(--muted); }
+  textarea { width: 100%; min-height: 420px; font-family: Consolas, monospace;
+             font-size: 13px; border: 1px solid var(--line); border-radius: 8px;
+             padding: 12px; resize: vertical; }
+  input[type=text] { border: 1px solid var(--line); border-radius: 6px;
+                     padding: 6px 10px; width: 260px; font-size: 13px; }
+  select { border: 1px solid var(--line); border-radius: 6px;
+           padding: 6px 10px; font-size: 13px; background: var(--card); }
+  button.act { background: var(--accent); color: #fff; border: none;
+               padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  button.act.ghost { background: var(--card); color: var(--accent);
+                     border: 1px solid var(--accent); }
+  button.act:disabled { opacity: .5; cursor: not-allowed; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .err { color: var(--err); }
+  .okc { color: var(--ok); }
+  pre.logs { background: #111827; color: #d1d5db; border-radius: 8px;
+             padding: 12px; font-size: 12px; font-family: Consolas, monospace;
+             max-height: 480px; overflow: auto; white-space: pre-wrap; }
+  section { display: none; }
+  section.active { display: block; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+         margin-bottom: 10px; }
+  .task { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+          margin-bottom: 10px; }
+  .task .tname { font-weight: 600; }
+  .task .meta { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .role-item { padding: 8px 12px; cursor: pointer; border-radius: 8px;
+               margin-bottom: 6px; font-size: 13px; border: 1px solid var(--line);
+               background: var(--card); }
+  .role-item:hover { border-color: var(--accent); }
+  .role-item.sel { border-color: var(--accent); background: rgba(96,165,250,.12);
+                   color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>微信自动回复系统</h1>
+  <span class="badge">本地管理面板 · 仅本机可访问</span>
+</header>
+<nav>
+  <button data-tab="overview" class="active">概览</button>
+  <button data-tab="config">配置</button>
+  <button data-tab="roles">角色卡</button>
+  <button data-tab="messages">消息流水</button>
+  <button data-tab="memory">长期记忆</button>
+  <button data-tab="scheduler">定时任务</button>
+  <button data-tab="logs">日志</button>
+</nav>
+<main>
+  <section id="tab-overview" class="active">
+    <div class="card"><h2>系统状态</h2>
+      <div class="row">
+        <span id="sys-status" class="pill off">加载中…</span>
+        <button class="act" id="sys-start">启动系统</button>
+        <button class="act ghost" id="sys-stop">停止系统</button>
+        <button class="act ghost" id="sys-rebind">重新检测账号</button>
+        <span id="sys-msg" class="muted"></span>
+      </div>
+      <p class="muted">「启动系统」开始监听并自动回复；「停止系统」暂停但不关面板。
+        切换测试账号：微信登录页切号扫码后，点「重新检测账号」即自动跟随新账号。</p>
+    </div>
+    <div class="card"><h2>运行概览</h2>
+      <div class="grid" id="ov-grid"></div>
+    </div>
+    <div class="card"><h2>监听对象解析</h2>
+      <table><thead><tr><th>显示名</th><th>角色</th><th>会话级开关</th>
+        <th>群@提及</th><th>解析结果</th></tr></thead>
+        <tbody id="ov-targets"></tbody></table>
+    </div>
+  </section>
+
+  <section id="tab-config">
+    <div class="card"><h2>监听对象管理</h2>
+      <table><thead><tr><th>显示名</th><th>角色</th><th>解析结果</th><th>操作</th></tr></thead>
+        <tbody id="lst-rows"></tbody></table>
+      <div class="row" style="margin-top:12px">
+        <input type="text" id="lst-name" placeholder="微信显示名（须与微信一致）">
+        <select id="lst-role">
+          <option value="assistant">assistant</option>
+          <option value="companion">companion</option>
+        </select>
+        <button class="act" id="lst-add">添加监听对象</button>
+        <span id="lst-msg" class="muted"></span>
+      </div>
+      <p class="muted">添加时会先校验微信名能否解析为真实会话，成功后立即生效并写回 config.yaml
+        （备份 .bak；YAML 重排会丢注释，精细编辑请用下方编辑框）。</p>
+    </div>
+    <div class="card"><h2>config.yaml 编辑</h2>
+      <p class="muted">保存前会做 YAML 与语义校验，通过后自动备份为 config.yaml.bak。
+        修改后需重启 main.py 生效。api_key 明文展示，仅本机可访问。</p>
+      <textarea id="cfg-text" spellcheck="false"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="act" id="cfg-save">保存配置</button>
+        <button class="act ghost" id="cfg-reload">重新加载</button>
+        <span id="cfg-msg" class="muted"></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-roles">
+    <div class="card"><h2>角色卡管理（prompts/*.md）</h2>
+      <p class="muted">每个监听对象通过 config.yaml 的 <code>role</code> 字段选用角色；
+        修改后需重启 main.py 生效。<code>assistant</code> 为内置默认角色，可改但不可删。</p>
+      <div class="row" style="align-items:flex-start">
+        <div style="width:230px;flex-shrink:0">
+          <div class="row" style="margin-bottom:8px">
+            <button class="act" id="role-new">新建角色</button>
+          </div>
+          <div id="role-list" class="muted"></div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="row">
+            <span id="role-cur" class="pill off">未选择</span>
+            <button class="act" id="role-save">保存角色</button>
+            <button class="act ghost" id="role-del">删除角色</button>
+            <span id="role-msg" class="muted"></span>
+          </div>
+          <textarea id="role-content" spellcheck="false"
+            placeholder="角色卡内容（系统提示词）：&#10;1. 定位与身份&#10;2. 说话方式 / 格式规则&#10;3. 语气 / 内容边界&#10;保存后重启 main.py 生效"></textarea>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-messages">
+    <div class="card"><h2>消息流水（data/chat.db）</h2>
+      <div class="row">
+        <input type="text" id="msg-talker" placeholder="会话 username（留空 = 全部）">
+        <button class="act ghost" id="msg-refresh">刷新</button>
+      </div>
+      <table><thead><tr><th>时间</th><th>会话</th><th>方向</th><th>状态</th>
+        <th>内容</th></tr></thead><tbody id="msg-rows"></tbody></table>
+    </div>
+  </section>
+
+  <section id="tab-memory">
+    <div class="card"><h2>长期记忆（data/memory.db）</h2>
+      <div class="row">
+        <input type="text" id="mem-talker" placeholder="会话 username（必填，见概览/流水）">
+        <button class="act ghost" id="mem-query">查询</button>
+      </div>
+      <div id="mem-list" class="muted"></div>
+    </div>
+  </section>
+
+  <section id="tab-scheduler">
+    <div class="card"><h2>定时任务</h2>
+      <p class="muted" id="sch-status"></p>
+      <div id="sch-list"></div>
+    </div>
+  </section>
+
+  <section id="tab-logs">
+    <div class="card"><h2>运行日志（logs/run_今日.log）</h2>
+      <pre class="logs" id="log-body"></pre>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  return res.json();
+}
+
+// ---- Tab 切换 ----
+document.querySelectorAll("nav button").forEach((b) => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
+    document.querySelectorAll("section").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    $("#tab-" + b.dataset.tab).classList.add("active");
+    load(b.dataset.tab);
+  });
+});
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g,
+    (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function dirLabel(d) { return d === "in" ? "入站" : d === "out" ? "出站" : d; }
+function statusPill(s) {
+  const map = { replied: ["ok", "已回复"], sent: ["ok", "已发送"], blocked: ["no", "拦截"],
+                llm_failed: ["off", "LLM失败"], send_failed: ["no", "发送失败"] };
+  const p = map[s] || ["off", s];
+  return `<span class="pill ${p[0]}">${esc(p[1])}</span>`;
+}
+
+// ---- 系统控制（启停 / 切换账号）----
+function sysPill(running) {
+  return running
+    ? '<span class="pill ok">运行中</span>'
+    : '<span class="pill off">已停止</span>';
+}
+async function sysAction(path, confirmMsg, done) {
+  if (confirmMsg && !confirm(confirmMsg)) return;
+  $("#sys-msg").textContent = "操作中…";
+  try {
+    const d = await api(path, { method: "POST" });
+    $("#sys-msg").innerHTML = d.ok
+      ? '<span class="okc">' + esc(d.error || "成功") + "</span>"
+      : '<span class="err">' + esc(d.error || "操作失败") + "</span>";
+    if (d.ok && done) done();
+  } catch (e) { $("#sys-msg").textContent = "请求失败: " + e; }
+  loadOverview();
+}
+$("#sys-start").addEventListener("click", () => sysAction("/api/system/start", ""));
+$("#sys-stop").addEventListener("click", () => sysAction("/api/system/stop", ""));
+$("#sys-rebind").addEventListener("click", () =>
+  sysAction("/api/account/rebind",
+    "将重新检测当前微信登录账号并切换（会先停止系统再恢复）。确定？"));
+
+// ---- 概览 ----
+async function loadOverview() {
+  const d = await api("/api/overview");
+  $("#sys-status").outerHTML =
+    '<span id="sys-status" class="pill ' + (d.system.running ? "ok" : "off") + '">'
+    + (d.system.running ? "运行中" : "已停止") + "</span>";
+  const llmKey = d.llm.has_key ? '<span class="okc">已配置</span>'
+                               : '<span class="err">未配置</span>';
+  $("#ov-grid").innerHTML = [
+    ["本机账号", esc(d.account.name)],
+    ["wxid", esc(d.account.wxid)],
+    ["LLM", esc(d.llm.provider) + " / " + esc(d.llm.model)],
+    ["LLM Key", llmKey],
+    ["调度器", d.scheduler.enabled ? "已启用" : "未启用" + "（" + d.scheduler.count + " 任务）"],
+    ["消息流水", d.message_count + " 条"],
+    ["长期记忆", d.memory_count + " 条"],
+  ].map(([k, v]) => `<div class="kv"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+  $("#ov-targets").innerHTML = d.targets.map((t) => {
+    const resolved = t.resolved
+      ? `<span class="pill ok">${esc(t.resolved)}</span>`
+      : `<span class="pill no">未解析</span>`;
+    return `<tr><td>${esc(t.display)}</td><td>${esc(t.role)}</td>
+      <td>${t.enabled ? "开" : "关"}</td><td>${t.at_only ? "是" : "否"}</td>
+      <td>${resolved}</td></tr>`;
+  }).join("") || `<tr><td colspan="5" class="muted">未配置监听对象</td></tr>`;
+}
+
+// ---- 监听对象管理 ----
+async function loadListen() {
+  const d = await api("/api/overview");
+  $("#lst-rows").innerHTML = (d.targets || []).map((t) => {
+    const resolved = t.resolved
+      ? `<span class="pill ok">${esc(t.resolved)}</span>`
+      : `<span class="pill no">未解析</span>`;
+    return `<tr><td>${esc(t.display)}</td><td>${esc(t.role)}</td>
+      <td>${resolved}</td>
+      <td><button class="act ghost" onclick="removeListen('${esc(t.display)}')">移除</button></td></tr>`;
+  }).join("") || `<tr><td colspan="4" class="muted">未配置监听对象</td></tr>`;
+}
+async function addListen() {
+  const name = $("#lst-name").value.trim();
+  const role = $("#lst-role").value;
+  if (!name) { $("#lst-msg").textContent = "请输入微信显示名"; return; }
+  const btn = $("#lst-add"); btn.disabled = true;
+  $("#lst-msg").textContent = "校验并添加中…";
+  try {
+    const d = await api("/api/listen/add", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, role }),
+    });
+    $("#lst-msg").innerHTML = d.ok
+      ? '<span class="okc">' + esc(d.error) + "</span>"
+      : '<span class="err">' + esc(d.error) + "</span>";
+    if (d.ok) $("#lst-name").value = "";
+  } catch (e) { $("#lst-msg").textContent = "请求失败: " + e; }
+  btn.disabled = false;
+  loadConfig();
+}
+async function removeListen(name) {
+  if (!confirm("移除监听对象「" + name + "」？")) return;
+  const d = await api("/api/listen/remove", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  $("#lst-msg").innerHTML = d.ok
+    ? '<span class="okc">' + esc(d.error) + "</span>"
+    : '<span class="err">' + esc(d.error) + "</span>";
+  loadConfig();
+}
+$("#lst-add").addEventListener("click", addListen);
+
+// ---- 配置 ----
+async function loadConfig() {
+  const d = await api("/api/config");
+  $("#cfg-text").value = d.yaml || "";
+  $("#cfg-msg").textContent = "";
+  loadListen();
+}
+$("#cfg-reload").addEventListener("click", loadConfig);
+$("#cfg-save").addEventListener("click", async () => {
+  const btn = $("#cfg-save"); btn.disabled = true;
+  $("#cfg-msg").textContent = "校验并保存中…";
+  try {
+    const d = await api("/api/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ yaml: $("#cfg-text").value }),
+    });
+    $("#cfg-msg").textContent = d.ok
+      ? '<span class="okc">' + esc(d.error || "已保存") + "</span>"
+      : '<span class="err">' + esc(d.error) + "</span>";
+  } catch (e) { $("#cfg-msg").textContent = "请求失败: " + e; }
+  btn.disabled = false;
+});
+
+// ---- 角色卡 ----
+let selectedRole = null;
+async function loadRoles() {
+  const d = await api("/api/roles");
+  const roles = d.roles || [];
+  if (roles.length === 0) {
+    $("#role-list").innerHTML = '<div class="muted">prompts 目录暂无角色卡</div>';
+    return;
+  }
+  if (!selectedRole || !roles.some((r) => r.name === selectedRole)) {
+    selectedRole = roles[0].name;
+  }
+  $("#role-list").innerHTML = roles.map((r) => {
+    const tag = r.builtin
+      ? ' <span class="pill ok" style="font-size:11px">内置</span>' : "";
+    return `<div class="role-item ${r.name === selectedRole ? "sel" : ""}"
+      onclick="pickRole('${esc(r.name)}')">${esc(r.name)}${tag}
+      <span class="muted" style="float:right">${r.size}字</span></div>`;
+  }).join("");
+  const cur = roles.find((r) => r.name === selectedRole);
+  if (cur) {
+    $("#role-cur").textContent = "当前：" + cur.name;
+    $("#role-cur").className = "pill " + (cur.builtin ? "ok" : "off");
+    $("#role-content").value = cur.content;
+  }
+}
+function pickRole(name) { selectedRole = name; loadRoles(); }
+$("#role-new").addEventListener("click", () => {
+  const name = prompt("新角色名（字母开头，仅字母/数字/下划线，≤32 字符）");
+  if (!name) return;
+  if (!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(name)) {
+    $("#role-msg").textContent = "角色名不合法：字母开头，仅字母/数字/下划线";
+    return;
+  }
+  selectedRole = name;
+  $("#role-content").value = "";
+  $("#role-cur").textContent = "当前：" + name + "（新建）";
+  $("#role-cur").className = "pill off";
+  $("#role-msg").textContent = "已进入新建状态，填写内容后点保存";
+  loadRoles();
+});
+$("#role-save").addEventListener("click", async () => {
+  const content = $("#role-content").value;
+  if (!selectedRole) { $("#role-msg").textContent = "请先选择或新建角色"; return; }
+  if (!content.trim()) { $("#role-msg").textContent = "角色内容不能为空"; return; }
+  const btn = $("#role-save"); btn.disabled = true;
+  $("#role-msg").textContent = "保存中…";
+  try {
+    const d = await api("/api/roles/save", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: selectedRole, content }),
+    });
+    $("#role-msg").innerHTML = d.ok
+      ? '<span class="okc">' + esc(d.error) + "</span>"
+      : '<span class="err">' + esc(d.error) + "</span>";
+    if (d.ok) loadRoles();
+  } catch (e) { $("#role-msg").textContent = "请求失败: " + e; }
+  btn.disabled = false;
+});
+$("#role-del").addEventListener("click", async () => {
+  if (!selectedRole) { $("#role-msg").textContent = "请先选择角色"; return; }
+  if (!confirm("删除角色「" + selectedRole + "」？此操作不可恢复。")) return;
+  const d = await api("/api/roles/delete", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: selectedRole }),
+  });
+  $("#role-msg").innerHTML = d.ok
+    ? '<span class="okc">' + esc(d.error) + "</span>"
+    : '<span class="err">' + esc(d.error) + "</span>";
+  if (d.ok) { selectedRole = null; loadRoles(); }
+});
+
+// ---- 消息流水 ----
+async function loadMessages() {
+  const talker = $("#msg-talker").value.trim();
+  const d = await api("/api/messages?limit=50&talker=" + encodeURIComponent(talker));
+  $("#msg-rows").innerHTML = (d.rows || []).map((r) =>
+    `<tr><td>${esc(r.msg_time)}</td><td>${esc(r.talker)}</td>
+     <td>${dirLabel(r.direction)}</td><td>${statusPill(r.status)}</td>
+     <td>${esc(r.content && r.content.slice(0, 120))}</td></tr>`
+  ).join("") || `<tr><td colspan="5" class="muted">暂无记录</td></tr>`;
+}
+$("#msg-refresh").addEventListener("click", loadMessages);
+
+// ---- 长期记忆 ----
+async function loadMemory() {
+  const talker = $("#mem-talker").value.trim();
+  if (!talker) { $("#mem-list").textContent = "请先输入会话 username"; return; }
+  const d = await api("/api/memory?limit=50&talker=" + encodeURIComponent(talker));
+  if (d.hint) { $("#mem-list").textContent = d.hint; return; }
+  $("#mem-list").innerHTML = (d.rows || []).map((r) =>
+    `<div class="kv" style="margin-bottom:8px">
+       <div class="muted">${esc(r.ts)} · ${esc(r.kind)}</div>
+       <div>${esc(r.content)}</div></div>`
+  ).join("") || "该会话暂无长期记忆";
+}
+$("#mem-query").addEventListener("click", loadMemory);
+
+// ---- 定时任务 ----
+async function loadScheduler() {
+  const d = await api("/api/scheduler");
+  $("#sch-status").textContent = d.enabled
+    ? "调度器已启用" : "调度器未启用（scheduler.enabled=false）";
+  $("#sch-list").innerHTML = d.tasks.map((t) => {
+    const st = t.enabled ? '<span class="pill ok">运行中</span>'
+                         : '<span class="pill off">已停用</span>';
+    const once = t.state && t.state.fired ? " · 已触发" : "";
+    return `<div class="task"><div class="tname">${esc(t.name)} ${st}</div>
+      <div class="meta">目标：${esc(t.to)} · 触发：${esc(t.trigger)}${once}</div>
+      <div class="meta">内容：${esc(t.content)}</div>
+      <button class="act ghost" style="margin-top:8px"
+        onclick="toggleTask('${esc(t.name)}', ${!t.enabled})">
+        ${t.enabled ? "停用" : "启用"}</button></div>`;
+  }).join("") || "未配置定时任务";
+}
+async function toggleTask(name, enabled) {
+  const d = await api("/api/scheduler/toggle", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, enabled }),
+  });
+  alert(d.ok ? d.error : "失败：" + d.error);
+  loadScheduler();
+}
+
+// ---- 日志 ----
+async function loadLogs() {
+  const d = await api("/api/logs?lines=300");
+  $("#log-body").textContent = d.logs || "";
+}
+
+function load(tab) {
+  if (tab === "overview") loadOverview();
+  else if (tab === "config") loadConfig();
+  else if (tab === "roles") loadRoles();
+  else if (tab === "messages") loadMessages();
+  else if (tab === "memory") loadMemory();
+  else if (tab === "scheduler") loadScheduler();
+  else if (tab === "logs") loadLogs();
+}
+
+loadOverview();
+setInterval(loadOverview, 5000);
+setInterval(loadLogs, 8000);
+</script>
+</body>
+</html>

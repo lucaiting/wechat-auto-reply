@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# 敏感配置（真实配置不上传，只上传 config.example.yaml 模板）
+config.yaml
+config.yaml.bak
+
+# 运行数据与日志（含聊天数据库，勿上传）
+data/
+logs/
+wechatauto_logs/
+*.log
+
+# IDE
+.idea/
+.vscode/
+
+# 系统文件
+.DS_Store
+Thumbs.db

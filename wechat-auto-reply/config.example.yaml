@@ -1,0 +1,87 @@
+# wechat-auto-reply 配置模板（复制为 config.yaml 后修改）
+# LLM Key 两种方式任选：填下面 api_key，或留空并设置环境变量 LLM_API_KEY
+
+wechat:
+  poll_interval: 1.0        # 数据库轮询间隔（秒），越小越实时、越耗 CPU
+
+llm:
+  provider: deepseek        # deepseek / qwen / glm
+  model: ""                 # 留空自动用 provider 默认模型
+  base_url: ""              # 留空自动用 provider 官方端点；也可设环境变量 LLM_BASE_URL
+  api_key: ""               # 留空读环境变量 LLM_API_KEY；建议用下方 api_key_encrypted 加密存储
+  # api_key_encrypted: "..."  # （可选）DPAPI 加密后的 Key（运行 scripts/encrypt_key.py 自动生成）；
+                              # 存在时优先于明文 api_key，仅本机当前用户可解密
+  temperature: 0.7
+  timeout: 60
+
+# 监听对象（三种写法可混用，name 为微信显示的昵称/群名，须完全一致）：
+#   1) 简写字符串        "好友昵称"                    → 角色 assistant
+#   2) 列表              ["好友昵称", "角色名"]         → 指定角色
+#   3) 完整对象（推荐）  {name, role, enabled, at_only, quiet_periods}
+listen:
+  - name: "文件传输助手"
+    role: "assistant"
+    enabled: true
+    at_only: false            # 仅对群生效：true 时只回复提及本机昵称的消息
+    quiet_periods: []         # 会话级静默时段覆盖，如 [["12:00", "13:30"]]；空则用全局
+  # - ["某个好友昵称", "assistant"]
+  # - {name: "某个群名", role: "companion", enabled: true, at_only: true}
+
+safety:
+  enabled: true             # 全局总开关（false 则只读不回复）
+  # 多时段静默（推荐，可多条，支持跨天）；不填则回退用下方旧字段 quiet_start/quiet_end
+  quiet_periods: []
+  quiet_start: "23:00"      # 兼容旧配置：静默时段开始（HH:MM）
+  quiet_end: "08:00"        # 兼容旧配置：静默时段结束（HH:MM）
+  blocked_keywords:         # 命中即不回复（防误发）
+    - "转账"
+    - "付款"
+    - "验证码"
+  group_min_interval: 60    # 群消息两次回复最小间隔（秒），防刷屏
+
+sender:
+  min_interval: 3.0         # 两次发送最小间隔（秒）
+  max_retry: 2              # 发送失败重试次数
+  human_typing: true        # 模拟打字延迟
+  max_consecutive_fail: 3   # 连续发送失败达到该值自动暂停
+
+memory:
+  short_window: 10          # 短期记忆保留轮数
+  long_term:
+    enabled: true           # 长期记忆（本地检索，零额外依赖）
+    top_k: 5                # 每次对话注入的命中条数
+    max_per_talker: 200     # 每个会话最多保留条数（超出删最旧）
+
+# 本地管理面板（M4）：浏览器打开 http://127.0.0.1:8790/
+# 可查看/编辑配置、消息流水、长期记忆、日志、定时任务启停
+webui:
+  enabled: true             # 启动时是否开启管理面板
+  host: "127.0.0.1"         # 仅本机访问；请勿改为 0.0.0.0 暴露公网
+  port: 8790
+
+# 定时任务（M2）：time/cron/once 三选一，均必填 name + to + content
+#  - content 支持 {date}、{time} 占位符
+#  - content 以 "$llm:" 开头则用 LLM 生成（支持 {memory} 注入近期记忆）
+scheduler:
+  enabled: true             # 定时任务总开关（false 则全部不执行）
+  tasks:
+    # 每天固定时间发送
+    # - name: "早间提醒"
+    #   time: "09:00"
+    #   to: "文件传输助手"
+    #   content: "早上好！{date}，记得喝水。"
+    # 标准 cron（分 时 日 月 周，支持 * / - 和逗号；周 0/7=周日）
+    # - name: "整点报时"
+    #   cron: "0 * * * *"
+    #   to: "文件传输助手"
+    #   content: "整点报时：{time}"
+    # LLM 生成内容（结合近期记忆做总结）
+    # - name: "每日总结"
+    #   time: "22:00"
+    #   to: "文件传输助手"
+    #   content: "$llm:请根据{memory}，用 3 句话总结今天和用户聊了什么"
+    # 一次性任务（触发后不再执行）
+    # - name: "测试提醒"
+    #   once: "2026-11-04 10:00"
+    #   to: "文件传输助手"
+    #   content: "这是一条一次性测试消息"

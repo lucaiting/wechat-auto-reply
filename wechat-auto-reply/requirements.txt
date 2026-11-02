@@ -1,0 +1,4 @@
+wechatauto-replica==1.2.9
+openai>=3.0
+loguru>=0.7
+pyyaml>=6.0
